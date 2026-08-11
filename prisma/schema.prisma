@@ -1,0 +1,787 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  TEAM
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  EXPIRED
+  TRIALING
+  PAST_DUE
+}
+
+enum PromptPlatform {
+  CHATGPT
+  CLAUDE
+  GEMINI
+  GROK
+  PERPLEXITY
+  CURSOR
+  GITHUB_COPILOT
+  MIDJOURNEY
+  STABLE_DIFFUSION
+  FLUX
+  LEONARDO
+  RUNWAY
+  SORA
+  GENERIC
+}
+
+enum PromptTone {
+  PROFESSIONAL
+  CASUAL
+  FRIENDLY
+  FORMAL
+  CREATIVE
+  TECHNICAL
+  HUMOROUS
+  PERSUASIVE
+  NEUTRAL
+  CUSTOM
+}
+
+enum PromptComplexity {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum PromptLength {
+  SHORT
+  MEDIUM
+  LONG
+  VERY_LONG
+}
+
+enum PromptOutputFormat {
+  MARKDOWN
+  JSON
+  TEXT
+  HTML
+  CSV
+  CODE
+  TABLE
+  LIST
+  YAML
+  XML
+}
+
+enum SourceType {
+  GITHUB
+  CSV
+  MARKDOWN
+  JSON
+  MANUAL
+  API
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum UsageAction {
+  PROMPT_CREATE
+  PROMPT_COPY
+  PROMPT_SHARE
+  PROMPT_EXPORT
+  PROMPT_IMPORT
+  PROMPT_GENERATE
+  PROMPT_OPTIMIZE
+  PROMPT_ANALYZE
+  PROMPT_TRANSLATE
+  FAVORITE_ADD
+  FAVORITE_REMOVE
+  COLLECTION_CREATE
+  MARKETPLACE_PURCHASE
+  MARKETPLACE_SELL
+}
+
+enum BlogStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model User {
+  id           String         @id @default(cuid())
+  clerkId      String         @unique
+  email        String         @unique
+  name         String
+  avatar       String?
+  role         UserRole       @default(USER)
+  credits      Int            @default(0)
+  dailyPromptCount Int        @default(0)
+  lastDailyReset DateTime     @default(now())
+
+  xp           Int            @default(0)
+  level        Int            @default(1)
+  badges       String[]       @default([])
+  streakDays   Int            @default(0)
+  lastQuestAt  DateTime?
+  questsDone   Int            @default(0)
+  duelsVoted   Int            @default(0)
+  duelsWon     Int            @default(0)
+  copiesCount  Int            @default(0)
+  favoritesCount Int          @default(0)
+
+  prompts      Prompt[]
+  collections  Collection[]
+  favorites    Favorite[]
+  templates    Template[]
+  subscription Subscription?
+  usage        Usage[]
+  translations PromptTranslation[]
+  contestEntries ContestEntry[]
+  contestVotes   ContestVote[]
+  promptAnalyses PromptAnalysis[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Duel {
+  id         String   @id @default(cuid())
+  promptAId  String
+  promptBId  String
+  votesA     Int      @default(0)
+  votesB     Int      @default(0)
+  isActive   Boolean  @default(true)
+  endsAt     DateTime
+  winnerId   String?
+  createdAt  DateTime @default(now())
+
+  promptA Prompt @relation("duelPromptA", fields: [promptAId], references: [id], onDelete: Cascade)
+  promptB Prompt @relation("duelPromptB", fields: [promptBId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+  @@index([endsAt])
+}
+
+model DuelVote {
+  id      String   @id @default(cuid())
+  duelId  String
+  userId  String
+  pickId  String
+  createdAt DateTime @default(now())
+
+  @@unique([duelId, userId])
+  @@index([duelId])
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  type      String
+  userId    String?
+  userName  String
+  promptId  String?
+  promptTitle String?
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([type])
+}
+
+model Prompt {
+  id           String              @id @default(cuid())
+  title        String
+  content      String
+  description  String?
+  platform     PromptPlatform      @default(GENERIC)
+  tone         PromptTone          @default(PROFESSIONAL)
+  language     String              @default("en")
+  complexity   PromptComplexity    @default(INTERMEDIATE)
+  length       PromptLength        @default(MEDIUM)
+  outputFormat PromptOutputFormat  @default(MARKDOWN)
+  tags         String[]
+  isPublic     Boolean             @default(true)
+  isFeatured   Boolean             @default(false)
+  isFlagged    Boolean             @default(false)
+  isDeleted    Boolean             @default(false)
+  viewCount    Int                 @default(0)
+  copyCount    Int                 @default(0)
+  likeCount    Int                 @default(0)
+  shareCount   Int                 @default(0)
+  rating       Float               @default(0)
+  ratingCount  Int                 @default(0)
+  ratingSum    Int                 @default(0)
+  score        Int                 @default(0)
+  price        Decimal?            @default(0)
+  version      Int                 @default(1)
+
+  categoryId   String?
+  category     Category?           @relation(fields: [categoryId], references: [id])
+  userId       String
+  user         User                @relation(fields: [userId], references: [id])
+  collectionId String?
+  collection   Collection?         @relation(fields: [collectionId], references: [id])
+
+  versions     PromptVersion[]
+  translations PromptTranslation[]
+  favorites    Favorite[]
+  collectionEntries CollectionPrompt[]
+  duelsAsA     Duel[]              @relation("duelPromptA")
+  duelsAsB     Duel[]              @relation("duelPromptB")
+
+  sourceId     String?
+  source       Source?             @relation(fields: [sourceId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, isDeleted])
+  @@index([categoryId, isPublic, isDeleted, createdAt(sort: Desc)])
+  @@index([platform, isPublic, isDeleted, createdAt(sort: Desc)])
+  @@index([isPublic, isDeleted, createdAt(sort: Desc)])
+  @@index([tags], type: Gin)
+  @@index([score(sort: Desc)])
+}
+
+model CollectionPrompt {
+  id           String     @id @default(cuid())
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  promptId     String
+  prompt       Prompt     @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([collectionId, promptId])
+  @@index([promptId])
+}
+
+model PromptVersion {
+  id        String   @id @default(cuid())
+  promptId  String
+  prompt    Prompt   @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  content   String
+  version   Int
+  changelog String?
+  createdAt DateTime @default(now())
+
+  @@index([promptId])
+  @@unique([promptId, version])
+}
+
+model PromptTranslation {
+  id        String   @id @default(cuid())
+  promptId  String
+  prompt    Prompt   @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  language  String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([promptId])
+  @@unique([promptId, language])
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  icon        String?
+  color       String?
+
+  parentId    String?
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryTree")
+
+  prompts     Prompt[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+  @@index([slug])
+}
+
+model Tag {
+  id      String @id @default(cuid())
+  name    String @unique
+  slug    String @unique
+
+  @@index([slug])
+}
+
+model Collection {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isPrivate   Boolean  @default(false)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prompts     Prompt[]
+  entries     CollectionPrompt[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  promptId  String
+  prompt    Prompt   @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, promptId])
+  @@index([userId])
+}
+
+model Template {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  content     String
+  variables   Json     @default("[]")
+  category    String
+  isPublic    Boolean  @default(true)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([category])
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                 SubscriptionPlan   @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  stripeSubscriptionId String? @unique
+  stripeCustomerId     String?
+  currentPeriodStart   DateTime           @default(now())
+  currentPeriodEnd     DateTime
+  trialEnd             DateTime?
+  canceledAt           DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Plan {
+  id            String   @id @default(cuid())
+  key           String   @unique
+  name          String
+  description   String?
+  price         Float    @default(0)
+  period        String   @default("monthly")
+  stripePriceId String?
+  isActive      Boolean  @default(true)
+  isDefault     Boolean  @default(false)
+  sortOrder     Int      @default(0)
+
+  features PlanFeature[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+model PlanFeature {
+  id        String   @id @default(cuid())
+  planId    String
+  plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  name      String
+  icon      String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([planId, name])
+  @@index([planId])
+}
+
+model Source {
+  id       String     @id @default(cuid())
+  name     String
+  type     SourceType
+  url      String?
+  isActive Boolean    @default(true)
+  lastSync DateTime?
+
+  prompts  Prompt[]
+  importJobs ImportJob[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+}
+
+model ImportJob {
+  id            String       @id @default(cuid())
+  sourceId      String
+  source        Source       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  status        ImportStatus @default(PENDING)
+  totalItems    Int          @default(0)
+  importedItems Int          @default(0)
+  failedItems   Int          @default(0)
+  errorLog      String?
+  startedAt     DateTime     @default(now())
+  completedAt   DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+model Usage {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    UsageAction
+  metadata  Json        @default("{}")
+  createdAt DateTime    @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model PromptAnalysis {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  content   String
+  improved  String?
+  analysis  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model DiscountCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  description String?
+  discountType String  // PERCENTAGE or FIXED
+  discountValue Float
+  maxUses     Int?
+  usedCount   Int      @default(0)
+  validFrom   DateTime @default(now())
+  validUntil  DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model PaymentMethod {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique
+  description String?
+  icon        String?
+  config      Json     @default("{}")
+  isActive    Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+model Setting {
+  id                String             @id @default(cuid())
+  siteName          String             @default("PromptHub")
+  siteDescription   String?
+  tagline           String?
+  logoUrl           String?
+  supportEmail      String?
+  maintenanceMode   Boolean            @default(false)
+  defaultPlan       SubscriptionPlan   @default(FREE)
+  trialDays         Int                @default(7)
+  allowRegistration Boolean            @default(true)
+  marketplaceEnabled Boolean           @default(true)
+  generatorEnabled  Boolean            @default(true)
+  blogEnabled       Boolean            @default(true)
+  autoBackupEnabled Boolean            @default(false)
+  autoBackupRetention Int              @default(14)
+  autoCleanupEnabled Boolean           @default(true)
+  autoMaintenanceEnabled Boolean       @default(true)
+  autoMaintenanceHour Int              @default(4)
+  lastMaintenanceAt DateTime?
+  lastMaintenanceResult Json?
+  seoTitleTemplate  String?
+  seoKeywords       String?
+  ogImageUrl        String?
+  robotsIndex       Boolean            @default(true)
+  robotsFollow      Boolean            @default(true)
+  metadata          Json               @default("{}")
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model BlogPost {
+  id            String     @id @default(cuid())
+  title         String
+  slug          String     @unique
+  excerpt       String?
+  content       String
+  coverImage    String?
+  authorName    String     @default("PromptOS Team")
+  authorRole    String?
+  locale        String     @default("en")
+  status        BlogStatus @default(DRAFT)
+  publishedAt   DateTime?
+  featured      Boolean    @default(false)
+  seoTitle      String?
+  seoDescription String?
+  seoKeywords   String?
+  canonicalUrl  String?
+  readingMinutes Int       @default(5)
+  viewCount     Int        @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([locale])
+  @@index([slug])
+  @@index([featured])
+}
+
+model SystemLog {
+  id        String   @id @default(cuid())
+  level     String   @default("info")
+  source    String?
+  message   String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([level])
+}
+
+model BlogSchedule {
+  id            String   @id @default("default")
+  enabled       Boolean  @default(false)
+  publishHour   Int      @default(9)
+  locale        String   @default("en")
+  authorName    String   @default("PromptOS Team")
+  authorRole    String?
+  maxPerDay     Int      @default(1)
+  publishAsDraft Boolean @default(false)
+  keywords      String[]
+  usedKeywords  String[]
+  lastRunAt     DateTime?
+  lastRunResult String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model SystemBackup {
+  id        String   @id @default(cuid())
+  kind      String   @default("manual") // "auto" | "manual"
+  label     String?
+  rowCount  Int      @default(0)
+  sizeKb    Int      @default(0)
+  data      Json
+  createdAt DateTime @default(now())
+
+  @@index([kind])
+  @@index([createdAt])
+}
+
+model UpdateManifest {
+  id           String    @id @default(cuid())
+  version      String    @unique
+  title        String
+  changelog    String    @db.Text
+  integrity    String?
+  signature    String?
+  packageUrl   String?
+  sizeKb       Int       @default(0)
+  status       String    @default("available") // "available" | "applied" | "rolled_back"
+  appliedAt    DateTime?
+  rolledBackAt DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([status])
+}
+
+model Extension {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  version     String
+  description String?
+  manifest    Json
+  dependencies Json
+  config      Json?
+  state       String    @default("ACTIVE") // "ACTIVE" | "DISABLED" | "REMOVED"
+  license     String?
+  author      String?
+  installedAt DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([state])
+}
+
+model ExtensionLog {
+  id          String    @id @default(cuid())
+  extensionId String
+  level       String    @default("info")
+  message     String
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([extensionId])
+  @@index([createdAt])
+}
+
+model Theme {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  tokens      Json      @default("{}")
+  layout      Json      @default("{}")
+  previewData Json?
+  isActive    Boolean   @default(false)
+  isPreset    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
+model Page {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  title        String
+  content      Json
+  seo          Json?
+  isPublic     Boolean  @default(true)
+  requiresAuth Boolean  @default(false)
+  permissions  Json?
+  status       String   @default("draft") // "draft" | "published"
+  version      Int      @default(1)
+  clonedFromId String?
+  autosaveData Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status])
+  @@index([isPublic])
+}
+
+model AuditLog {
+  id        String    @id @default(cuid())
+  actorId   String?
+  actorName String?
+  actorRole String?
+  action    String
+  resource  String
+  resourceId String?
+  details   Json?
+  ip        String?
+  createdAt DateTime  @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([resource])
+  @@index([createdAt])
+}
+
+model HomeContent {
+  id        String   @id @default("default")
+  data      Json
+  updatedAt DateTime @updatedAt
+}
+
+model SocialLink {
+  id        String   @id @default(cuid())
+  label     String
+  url       String
+  icon      String   @default("link")
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+model Contest {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  topic       String?
+  reward      String   @default("1 month of PRO for the winner")
+  startsAt    DateTime @default(now())
+  endsAt      DateTime
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  maxEntries  Int      @default(1000)
+  entrants    ContestEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([endsAt])
+}
+
+model ContestEntry {
+  id             String        @id @default(cuid())
+  contestId      String
+  contest        Contest       @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  content        String
+  votes          Int           @default(0)
+  isWinner       Boolean       @default(false)
+  isDisqualified Boolean       @default(false)
+  votesLog       ContestVote[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([contestId, userId])
+  @@index([contestId])
+  @@index([userId])
+}
+
+model ContestVote {
+  id        String       @id @default(cuid())
+  entryId   String
+  entry     ContestEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([entryId, userId])
+  @@index([userId])
+}

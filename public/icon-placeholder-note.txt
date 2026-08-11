@@ -1,0 +1,4 @@
+TODO: Replace these with real PNG icons.
+- icon-192.png (192x192)
+- icon-512.png (512x512)
+Use a tool like https://www.pwabuilder.com or design them in Figma.
