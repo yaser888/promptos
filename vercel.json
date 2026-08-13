@@ -16,15 +16,5 @@
       "path": "/api/cron/extensions",
       "schedule": "0 3 * * *"
     }
-  ],
-  "env": {
-    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "@next_public_clerk_publishable_key",
-    "CLERK_SECRET_KEY": "@clerk_secret_key",
-    "DATABASE_URL": "@database_url",
-    "STRIPE_SECRET_KEY": "@stripe_secret_key",
-    "STRIPE_WEBHOOK_SECRET": "@stripe_webhook_secret",
-    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": "@next_public_stripe_publishable_key",
-    "REDIS_URL": "@redis_url",
-    "CRON_SECRET": "@cron_secret"
-  }
+  ]
 }
