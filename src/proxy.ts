@@ -37,52 +37,62 @@ function hasDemoSession(req: NextRequest): boolean {
   return (req.cookies.get("promptos_demo_session")?.value?.length ?? 0) > 0;
 }
 
-export default clerkMiddleware(
-  async (auth, req: NextRequest) => {
-    const { userId } = await auth();
-    const pathname = req.nextUrl.pathname;
+type MiddlewareHandler = (
+  auth: () => Promise<{ userId: string | null }>,
+  req: NextRequest
+) => Promise<Response>;
 
-    if (pathname.startsWith("/api") || pathname.startsWith("/_next")) {
-      return NextResponse.next();
-    }
+const authHandler: MiddlewareHandler = async (auth, req) => {
+  const { userId } = await auth();
+  const pathname = req.nextUrl.pathname;
 
-    let registry: SiteLanguageRecord[];
-    try {
-      registry = await getLanguageRegistry();
-    } catch {
-      registry = BUILTIN_LANGUAGES;
-    }
-    const knownCodes = registry.map((l) => l.code);
-    const enabledCodes = registry.filter((l) => l.enabled).map((l) => l.code);
-
-    const prefixPattern = new RegExp(`^/(${knownCodes.join("|")})(?=/|$)`);
-    const matchedPrefix = pathname.match(prefixPattern)?.[1];
-
-    if (matchedPrefix && !enabledCodes.includes(matchedPrefix)) {
-      const target = pathname.replace(prefixPattern, "") || "/";
-      return NextResponse.redirect(new URL(target, req.url));
-    }
-
-    const demoMode = !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-    const isAuthenticated = demoMode ? hasDemoSession(req) : !!userId;
-
-    if (!isPublicPath(pathname, prefixPattern) && !isAuthenticated) {
-      const signInUrl = new URL("/sign-in", req.url);
-      signInUrl.searchParams.set("redirect_url", req.url);
-      return NextResponse.redirect(signInUrl);
-    }
-
-    return createIntlMiddleware({
-      locales: enabledCodes,
-      defaultLocale,
-      localePrefix: "as-needed",
-      localeDetection: false,
-    })(req);
-  },
-  {
-    signInUrl: "/sign-in",
+  if (pathname.startsWith("/api") || pathname.startsWith("/_next")) {
+    return NextResponse.next();
   }
-);
+
+  let registry: SiteLanguageRecord[];
+  try {
+    registry = await getLanguageRegistry();
+  } catch {
+    registry = BUILTIN_LANGUAGES;
+  }
+  const knownCodes = registry.map((l) => l.code);
+  const enabledCodes = registry.filter((l) => l.enabled).map((l) => l.code);
+
+  const prefixPattern = new RegExp(`^/(${knownCodes.join("|")})(?=/|$)`);
+  const matchedPrefix = pathname.match(prefixPattern)?.[1];
+
+  if (matchedPrefix && !enabledCodes.includes(matchedPrefix)) {
+    const target = pathname.replace(prefixPattern, "") || "/";
+    return NextResponse.redirect(new URL(target, req.url));
+  }
+
+  const clerkConfigured = !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY);
+  const demoMode = !clerkConfigured;
+  const isAuthenticated = demoMode ? hasDemoSession(req) : !!userId;
+
+  if (!isPublicPath(pathname, prefixPattern) && !isAuthenticated) {
+    const signInUrl = new URL("/sign-in", req.url);
+    signInUrl.searchParams.set("redirect_url", req.url);
+    return NextResponse.redirect(signInUrl);
+  }
+
+  return createIntlMiddleware({
+    locales: enabledCodes,
+    defaultLocale,
+    localePrefix: "as-needed",
+    localeDetection: false,
+  })(req);
+};
+
+const clerkConfiguredForMiddleware =
+  !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY);
+
+const middleware = clerkConfiguredForMiddleware
+  ? clerkMiddleware(authHandler as never, { signInUrl: "/sign-in" })
+  : (req: NextRequest) => authHandler(async () => ({ userId: null }), req);
+
+export default middleware;
 
 export const config = {
   matcher: [
