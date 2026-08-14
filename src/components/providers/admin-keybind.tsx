@@ -4,13 +4,14 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 
 const ENTRY_KEY = process.env.NEXT_PUBLIC_ADMIN_ACCESS_KEY || "";
+const CLERK_CONFIGURED = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 export function AdminKeybind() {
   const pathname = usePathname();
   const bufferRef = useRef<string>("");
 
   useEffect(() => {
-    if (!ENTRY_KEY) return;
+    if (!ENTRY_KEY || CLERK_CONFIGURED) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
