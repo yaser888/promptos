@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { cleanPromptTitle } from "@/lib/prompt-title";
+import { cleanPromptTitle, isOpaqueTitle } from "@/lib/prompt-title";
 
 export interface GitHubImportResult {
   total: number;
@@ -17,7 +17,7 @@ interface TreeEntry {
 
 const MAX_FILE_SIZE = 512 * 1024;
 const SKIP_DIRS = [".claude", ".github", ".vscode", ".git"];
-const SKIP_FILES = new Set(["README.md", "CLAUDE.md", "LICENSE"]);
+const SKIP_FILE_PATTERN = /^(README|CLAUDE|LICENSE|CHANGELOG|CONTRIBUTING|CONTRIBUTORS|AUTHORS)(\.[a-z0-9]+)?$/i;
 const BRANCH_CANDIDATES = ["main", "master", "develop", "dev"];
 
 function getGitHubToken(): string | null {
@@ -63,6 +63,46 @@ function titleFromPath(path: string): string {
   const base = path.split("/").pop() || path;
   const noExt = base.replace(/\.md$/i, "");
   return cleanPromptTitle(noExt);
+}
+
+/**
+ * Falls back to the markdown content when the file name is just a code/ID:
+ * 1) first `#`/`##` heading, 2) first descriptive sentence, 3) null (skip).
+ */
+function titleFromContent(raw: string): string | null {
+  const headings = raw.match(/^#{1,2}\s+(.+)$/gm);
+  for (const h of headings || []) {
+    const cleaned = cleanPromptTitle(h.replace(/^#{1,2}\s+/, ""));
+    if (cleaned && !isOpaqueTitle(cleaned)) return cleaned.slice(0, 90);
+  }
+
+  // Markdown table row: use the first cell as the title ("| 旅游攻略 | 请推荐景点... |")
+  for (const line of raw.split("\n")) {
+    const t = line.trim();
+    if (!t.startsWith("|")) continue;
+    const cells = t.split("|").map((c) => c.trim()).filter(Boolean);
+    if (!cells.length) continue;
+    const cleaned = cleanPromptTitle(cells[0]);
+    if (cleaned && !isOpaqueTitle(cleaned)) return cleaned.slice(0, 90);
+  }
+
+  for (const line of raw.split("\n")) {
+    const t = line.trim();
+    if (!t || t.startsWith("#") || t.startsWith("!") || t.startsWith("[") || /^https?:\/\//i.test(t)) {
+      continue;
+    }
+    if (t.length < 30 || t.length > 240) continue;
+    if (/^```|^---|^\*\*?$/.test(t)) continue;
+    const sentence = t.split(/[.!?。！？]/)[0].trim().slice(0, 90);
+    if (sentence && !isOpaqueTitle(sentence)) return sentence;
+  }
+
+  return null;
+}
+function resolveTitle(path: string, raw: string): string | null {
+  const fromPath = titleFromPath(path);
+  if (fromPath && !isOpaqueTitle(fromPath)) return fromPath;
+  return titleFromContent(raw);
 }
 
 function cleanContent(raw: string, title: string): { content: string; description: string | null } {
@@ -340,7 +380,7 @@ export async function importFromGitHub(
       })
       .filter((f) => {
         const name = f.path.split("/").pop() || "";
-        return !SKIP_FILES.has(name.toUpperCase());
+        return !SKIP_FILE_PATTERN.test(name);
       })
       .filter((f) => (f.size ?? 0) <= MAX_FILE_SIZE);
 
@@ -364,9 +404,10 @@ export async function importFromGitHub(
     await runWithConcurrency(targets, 5, async (file) => {
       try {
         const raw = await fetchRawFile(owner, repo, branch, file.path);
-        const title = titleFromPath(file.path);
+        const title = resolveTitle(file.path, raw);
         if (!title) {
           skipped++;
+          if (errors.length < 20) errors.push(`${file.path}: no readable title (file name and content are opaque)`);
           return;
         }
         if (existingTitles.has(title.toLowerCase())) {

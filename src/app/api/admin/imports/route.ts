@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/server-auth";
 import { prisma } from "@/lib/prisma";
 import { importFromGitHub, parseGitHubUrl } from "@/lib/github-importer";
+import { importFromCsv } from "@/lib/csv-importer";
+
+const MAX_CSV_BYTES = 32 * 1024 * 1024;
 
 export async function GET(req: Request) {
   try {
@@ -63,6 +66,28 @@ export async function POST(req: Request) {
         adminUserId: session.user!.id,
         limit,
       });
+      const job = await prisma.importJob.findFirst({
+        where: { sourceId },
+        orderBy: { createdAt: "desc" },
+        include: { source: { select: { id: true, name: true, type: true } } },
+      });
+      return NextResponse.json({ job, result });
+    }
+
+    if (source.type === "CSV" && source.url) {
+      const res = await fetch(source.url, { cache: "no-store" });
+      if (!res.ok) {
+        return NextResponse.json({ error: `Failed to download CSV (${res.status})` }, { status: 502 });
+      }
+      const cl = Number(res.headers.get("content-length") || 0);
+      if (cl > MAX_CSV_BYTES) {
+        return NextResponse.json({ error: "CSV file exceeds the 32MB import limit" }, { status: 413 });
+      }
+      const rawText = await res.text();
+      if (rawText.length > MAX_CSV_BYTES) {
+        return NextResponse.json({ error: "CSV file exceeds the 32MB import limit" }, { status: 413 });
+      }
+      const result = await importFromCsv(source.id, rawText, { adminUserId: session.user!.id, limit });
       const job = await prisma.importJob.findFirst({
         where: { sourceId },
         orderBy: { createdAt: "desc" },
