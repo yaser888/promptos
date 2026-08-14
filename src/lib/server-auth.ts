@@ -58,12 +58,13 @@ function signSessionToken(clerkId: string, expiresAt: number): string {
 function verifySessionToken(token: string): string | null {
   try {
     const parts = token.split(".");
-    if (parts.length !== 3) return null;
+    if (parts.length !== 2) return null;
     const [payload, sig] = parts;
     const expected = crypto.createHmac("sha256", sessionSecret()).update(payload).digest("base64url");
     const a = Buffer.from(sig, "utf8");
     const b = Buffer.from(expected, "utf8");
-    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+    if (a.length !== b.length) return null;
+    if (!crypto.timingSafeEqual(a, b)) return null;
     const decoded = Buffer.from(payload, "base64url").toString("utf8");
     const dot = decoded.lastIndexOf(".");
     if (dot <= 0) return null;
@@ -126,7 +127,7 @@ export async function registerWithPassword(input: {
     throw err;
   }
 
-  const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
+  const adminCount = await prisma.user.count({ where: { role: "ADMIN", passwordHash: { not: null } } });
   const user = await prisma.user.create({
     data: {
       clerkId: `local_${crypto.randomUUID()}`,
