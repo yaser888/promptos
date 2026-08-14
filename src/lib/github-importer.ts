@@ -82,6 +82,8 @@ function titleFromContent(raw: string): string | null {
     if (!t.startsWith("|")) continue;
     const cells = t.split("|").map((c) => c.trim()).filter(Boolean);
     if (!cells.length) continue;
+    // Skip header/separator rows like "| 标题 | 问题 |" or "|---|----|"
+    if (cells.every((c) => c.length <= 14 && /^[\p{L}\p{N}]+$/u.test(c))) continue;
     const cleaned = cleanPromptTitle(cells[0]);
     if (cleaned && !isOpaqueTitle(cleaned)) return cleaned.slice(0, 90);
   }
