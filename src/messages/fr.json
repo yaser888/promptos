@@ -1432,6 +1432,23 @@
       "maxReached": "Maximum of 16 languages reached.",
       "saved": "Languages updated.",
       "deleteConfirm": "Delete this language?"
+    },
+    "tools": {
+      "title": "Tools & API Keys",
+      "subtitle": "Securely store API keys used by platform tools. Values are encrypted at rest.",
+      "empty": "No tool keys configured yet.",
+      "name": "Key name",
+      "namePlaceholder": "e.g. OPENAI_API_KEY",
+      "value": "Key value",
+      "valuePlaceholder": "Paste the secret value",
+      "addKey": "Add a key",
+      "save": "Save key",
+      "deleteConfirm": "Delete this key?",
+      "saved": "Tool keys updated.",
+      "configured": "Configured",
+      "notConfigured": "Not set",
+      "hint": "Use these names in integrations (e.g. OPENAI_API_KEY). Existing keys are never shown again — re-enter the value to rotate it.",
+      "updated": "Updated"
     }
   },
   "dashboardPages": {
@@ -1797,5 +1814,32 @@
       "length": "How long should the output be?",
       "example": "Share an example you like (optional)."
     }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Sign in to your account",
+      "subtitle": "Welcome back — enter your credentials to continue.",
+      "submit": "Sign In",
+      "prompt": "Don't have an account?",
+      "link": "Create one"
+    },
+    "signUp": {
+      "title": "Create your account",
+      "subtitle": "Fill in your details to get started.",
+      "submit": "Create Account",
+      "prompt": "Already have an account?",
+      "link": "Sign in"
+    },
+    "name": "Full name",
+    "namePlaceholder": "e.g. Yasser Ahmed",
+    "email": "Email",
+    "emailPlaceholder": "you@example.com",
+    "password": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "passwordPlaceholderSignup": "Create a password (8+ characters)",
+    "passwordHint": "Use at least 8 characters with a mix of letters and numbers.",
+    "submitting": "One moment...",
+    "genericError": "Something went wrong. Please try again.",
+    "backToHome": "Back to Home"
   }
 }

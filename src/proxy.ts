@@ -33,8 +33,8 @@ function isPublicPath(pathname: string, prefixPattern: RegExp): boolean {
   return publicPatterns.some((pattern) => pattern.test(path));
 }
 
-function hasDemoSession(req: NextRequest): boolean {
-  return (req.cookies.get("promptos_demo_session")?.value?.length ?? 0) > 0;
+function hasSessionCookie(req: NextRequest): boolean {
+  return (req.cookies.get("promptos_session")?.value?.length ?? 0) > 0;
 }
 
 type MiddlewareHandler = (
@@ -69,7 +69,7 @@ const authHandler: MiddlewareHandler = async (auth, req) => {
 
   const clerkConfigured = !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY);
   const demoMode = !clerkConfigured;
-  const isAuthenticated = demoMode ? hasDemoSession(req) : !!userId;
+  const isAuthenticated = demoMode ? hasSessionCookie(req) : !!userId;
 
   if (!isPublicPath(pathname, prefixPattern) && !isAuthenticated) {
     const signInUrl = new URL("/sign-in", req.url);

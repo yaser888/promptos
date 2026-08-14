@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <ClerkDisabledContext.Provider value={clerkDisabled}>
       {clerkDisabled ? (
-        <DemoAuthProvider>{children}</DemoAuthProvider>
+        <LocalAuthProvider>{children}</LocalAuthProvider>
       ) : (
         <ClerkProvider>{children}</ClerkProvider>
       )}
@@ -48,12 +48,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function DemoAuthProvider({ children }: { children: ReactNode }) {
+function LocalAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<NormalizedUser>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    fetch("/api/auth/demo")
+    fetch("/api/me")
       .then((r) => r.json())
       .then((data) => {
         setUser(data.user || null);
@@ -70,15 +70,18 @@ function DemoAuthProvider({ children }: { children: ReactNode }) {
     user,
     isLoaded,
     signOut: async () => {
-      await fetch("/api/auth/demo?role=signout", { method: "GET" });
-      setUser(null);
+      try {
+        await fetch("/api/auth/logout", { method: "POST" });
+      } finally {
+        setUser(null);
+      }
     },
   };
 
-  return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>;
+  return <LocalContext.Provider value={value}>{children}</LocalContext.Provider>;
 }
 
-const DemoContext = createContext<NormalizedAuth>({
+const LocalContext = createContext<NormalizedAuth>({
   isSignedIn: false,
   user: null,
   isLoaded: false,
@@ -102,5 +105,5 @@ export function useAuthUser(): NormalizedAuth {
     };
   }
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  return useContext(DemoContext);
+  return useContext(LocalContext);
 }

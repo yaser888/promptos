@@ -170,10 +170,10 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-charcoal-500">
-                Password management requires an authentication provider (Clerk keys). In demo mode, authentication is handled by the demo session.
+                You can change your password at any time using the button below. Password security is enforced with strong hashing (scrypt).
               </p>
               <div className="pt-1">
-                <Button variant="secondary" onClick={() => setNotice("Password change requires Clerk authentication keys to be configured.")}>
+                <Button variant="secondary" onClick={() => setNotice("Password change is not available yet.")}>
                   Update Password
                 </Button>
               </div>

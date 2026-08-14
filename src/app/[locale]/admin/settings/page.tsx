@@ -19,6 +19,7 @@ import {
   AlertCircle,
   Search,
   Languages,
+  KeyRound,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 
@@ -124,6 +125,13 @@ export default function AdminSettingsPage() {
     flag: "",
   });
 
+  const [toolKeys, setToolKeys] = useState<{ name: string; hasValue: boolean; updatedAt: string }[]>([]);
+  const [toolProviders, setToolProviders] = useState<{ name: string; hint: string }[]>([]);
+  const [toolDialogOpen, setToolDialogOpen] = useState(false);
+  const [toolName, setToolName] = useState("");
+  const [toolValue, setToolValue] = useState("");
+  const [toolSaving, setToolSaving] = useState(false);
+
   const fetchSettings = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -163,6 +171,13 @@ export default function AdminSettingsPage() {
       if (langsRes.ok) {
         const langsData = await langsRes.json();
         setLanguages(langsData.languages ?? []);
+      }
+
+      const toolsRes = await fetch("/api/admin/tool-keys");
+      if (toolsRes.ok) {
+        const toolsData = await toolsRes.json();
+        setToolKeys(toolsData.keys ?? []);
+        setToolProviders(toolsData.providers ?? []);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t("common.somethingWentWrong"));
@@ -316,8 +331,7 @@ export default function AdminSettingsPage() {
     await saveLanguages(next);
   };
 
-  const addLanguage = async () => {
-    const code = langForm.code.trim().toLowerCase();
+  const addLanguage = async () => {    const code = langForm.code.trim().toLowerCase();
     if (!/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(code)) {
       setNotice(t("languages.codeInvalid"));
       return;
@@ -346,6 +360,53 @@ export default function AdminSettingsPage() {
     await saveLanguages(next);
     setLangDialogOpen(false);
     setLangForm({ code: "", name: "", nativeName: "", dir: "ltr", flag: "" });
+  };
+
+  const saveToolKey = async () => {
+    setToolSaving(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/admin/tool-keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: toolName, value: toolValue }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || t("common.somethingWentWrong"));
+      }
+      const data = await res.json();
+      setToolKeys(data.keys ?? []);
+      setNotice(t("tools.saved"));
+      setToolDialogOpen(false);
+      setToolName("");
+      setToolValue("");
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : t("common.somethingWentWrong"));
+    } finally {
+      setToolSaving(false);
+    }
+  };
+
+  const removeToolKey = async (name: string) => {
+    if (!window.confirm(t("tools.deleteConfirm"))) return;
+    setNotice(null);
+    try {
+      const res = await fetch("/api/admin/tool-keys", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || t("common.somethingWentWrong"));
+      }
+      const data = await res.json();
+      setToolKeys(data.keys ?? []);
+      setNotice(t("tools.saved"));
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : t("common.somethingWentWrong"));
+    }
   };
 
   if (loading) {
@@ -664,6 +725,49 @@ export default function AdminSettingsPage() {
             </Button>
           </CardContent>
         </Card>
+
+        <Card glass>
+          <CardHeader>
+            <CardTitle>
+              <KeyRound className="h-4 w-4 inline mr-2 text-emerald-400" />
+              {t("tools.title")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-charcoal-500 mb-4">{t("tools.subtitle")}</p>
+            <div className="space-y-3 mb-4">
+              {toolKeys.length === 0 && (
+                <p className="text-sm text-charcoal-500 text-center py-6">{t("tools.empty")}</p>
+              )}
+              {toolKeys.map((key) => (
+                <div key={key.name} className="flex items-center justify-between p-3 rounded-lg bg-charcoal-800/30">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-mono text-charcoal-200 truncate">{key.name}</span>
+                      <Badge variant={key.hasValue ? "emerald" : "default"} size="sm">
+                        {key.hasValue ? t("tools.configured") : t("tools.notConfigured")}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-charcoal-600 mt-0.5">
+                      {t("tools.updated")}: {new Date(key.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => removeToolKey(key.name)}
+                    className="p-1.5 rounded-lg text-charcoal-500 hover:text-red-400 hover:bg-charcoal-800 transition-all"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <Button variant="secondary" className="w-full" onClick={() => setToolDialogOpen(true)}>
+              <Plus className="h-4 w-4" />
+              {t("tools.addKey")}
+            </Button>
+            <p className="text-[11px] text-charcoal-600 mt-3 leading-relaxed">{t("tools.hint")}</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Dialog
@@ -799,6 +903,49 @@ export default function AdminSettingsPage() {
           </Button>
           <Button variant="primary" onClick={addLanguage} disabled={!langForm.code.trim() || langSaving}>
             {t("languages.create")}
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={toolDialogOpen}
+        onClose={() => setToolDialogOpen(false)}
+        title={t("tools.addKey")}
+        description={t("tools.subtitle")}
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-charcoal-200">{t("tools.name")}</label>
+            <input
+              list="tool-key-names"
+              value={toolName}
+              onChange={(e) => setToolName(e.target.value.toUpperCase())}
+              placeholder={t("tools.namePlaceholder")}
+              className="flex h-10 w-full rounded-lg border border-charcoal-700 bg-charcoal-900/50 px-3 py-2 text-sm text-charcoal-100 placeholder:text-charcoal-600 focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+            />
+            <datalist id="tool-key-names">
+              {toolProviders.map((p) => (
+                <option key={p.name} value={p.name} />
+              ))}
+            </datalist>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-charcoal-200">{t("tools.value")}</label>
+            <input
+              type="password"
+              value={toolValue}
+              onChange={(e) => setToolValue(e.target.value)}
+              placeholder={t("tools.valuePlaceholder")}
+              className="flex h-10 w-full rounded-lg border border-charcoal-700 bg-charcoal-900/50 px-3 py-2 text-sm text-charcoal-100 placeholder:text-charcoal-600 focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-charcoal-800/50">
+          <Button variant="secondary" onClick={() => setToolDialogOpen(false)}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="primary" onClick={saveToolKey} disabled={!toolName.trim() || !toolValue.trim() || toolSaving} loading={toolSaving}>
+            {t("tools.save")}
           </Button>
         </div>
       </Dialog>

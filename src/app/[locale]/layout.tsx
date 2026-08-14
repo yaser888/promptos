@@ -4,7 +4,6 @@ import { AuthProvider } from "@/components/providers/auth-provider";
 import { BrandingProvider } from "@/components/providers/branding-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { HomeContentProvider } from "@/components/providers/home-content-provider";
-import { AdminKeybind } from "@/components/providers/admin-keybind";
 import { ToastProvider } from "@/components/ui/toast";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -73,7 +72,6 @@ export default async function LocaleLayout({
                     suppressHydrationWarning
                   />
                 ))}
-                <AdminKeybind />
                 <Analytics />
                 <SpeedInsights />
               </NextIntlClientProvider>

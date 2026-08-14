@@ -79,7 +79,7 @@ export function DashboardSidebar() {
               {user?.name || "Guest"}
             </p>
             <p className="text-xs text-charcoal-500 truncate">
-              {user?.email || "Demo mode"}
+              {user?.email || "Guest"}
             </p>
           </div>
         </div>
