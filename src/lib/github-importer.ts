@@ -17,7 +17,7 @@ interface TreeEntry {
 
 const MAX_FILE_SIZE = 512 * 1024;
 const SKIP_DIRS = [".claude", ".github", ".vscode", ".git"];
-const SKIP_FILE_PATTERN = /^(README|CLAUDE|LICENSE|CHANGELOG|CONTRIBUTING|CONTRIBUTORS|AUTHORS)(\.[a-z0-9]+)?$/i;
+const SKIP_FILE_PATTERN = /^(README|CLAUDE|LICENSE|CHANGELOG|CONTRIBUTING|CONTRIBUTORS|AUTHORS|CODE_OF_CONDUCT|SECURITY|SUPPORT|CODEOWNERS|GOVERNANCE)(\.[a-z0-9]+)?$/i;
 const BRANCH_CANDIDATES = ["main", "master", "develop", "dev"];
 
 function getGitHubToken(): string | null {
